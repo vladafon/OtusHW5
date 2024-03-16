@@ -4,9 +4,17 @@ namespace OtusHW5.CommandsManager
 {
     public class CommandsManager
     {
+        public int CommandsCount { get => _commands.Count; }
+
         private ConcurrentQueue<ICommand> _commands = new ConcurrentQueue<ICommand>();
 
         private ManualResetEvent _onNewCommandInQueueEvent = new ManualResetEvent(false);
+
+        private bool isHardStopped = false;
+
+        private bool isSoftStopped = false;
+
+        private Barrier _barrier = new Barrier(0);
 
         public void AddCommandToQueue(ICommand command)
         {
@@ -18,8 +26,28 @@ namespace OtusHW5.CommandsManager
 
         public void StartCommandsProccesor()
         {
+            _barrier.AddParticipant();
+
             while (true)
             {
+                if (isHardStopped)
+                {
+                    Console.WriteLine("Инициирована принудительная жесткая остановка обработчика.");
+                    _barrier.SignalAndWait();
+                    isHardStopped = false;
+                    isSoftStopped = false;
+                    break;
+                }
+
+                if (isSoftStopped && _commands.IsEmpty)
+                {
+                    Console.WriteLine("Инициирована принудительная мягкая остановка обработчика.");
+                    _barrier.SignalAndWait();
+                    isSoftStopped = false;
+                    isHardStopped = false;
+                    break;
+                }
+
                 if (_commands.IsEmpty)
                 {
                     _onNewCommandInQueueEvent.Reset();
@@ -47,6 +75,25 @@ namespace OtusHW5.CommandsManager
                     Console.WriteLine(ex.ToString());
                 }
             }
+
+            _barrier.RemoveParticipant();
+            Console.WriteLine($"Обработчик прекратил работу. Задач в очереди {_commands.Count}.");
+        }
+
+        public void HardStopCommandsProccesor()
+        {
+            isHardStopped = true;
+            _onNewCommandInQueueEvent.Set();
+
+            Console.WriteLine($"Вызван метод жесткой остановки.");
+        }
+
+        public void SoftStopCommandsProccesor()
+        {
+            isSoftStopped = true;
+            _onNewCommandInQueueEvent.Set();
+
+            Console.WriteLine($"Вызван метод мягкой остановки.");
         }
     }
 }

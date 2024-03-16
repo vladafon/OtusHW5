@@ -13,4 +13,6 @@ for (var i = 0; i < 10; i++)
     commandsManager.AddCommandToQueue(command);
 }
 
+commandsManager.SoftStopCommandsProccesor();
+
 Console.ReadKey();
